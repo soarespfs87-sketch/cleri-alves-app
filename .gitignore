@@ -1,0 +1,9 @@
+# Sistema
+.DS_Store
+
+# Material de origem — não faz parte do app publicado (arquivos grandes)
+assets/IMAGENS/
+assets/*.MOV
+assets/*.mp4
+assets/*.pdf
+assets/WhatsApp Image*
