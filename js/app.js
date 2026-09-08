@@ -2736,7 +2736,11 @@ window.App = (function () {
     if (!slug) {
       box.appendChild(el("h2", { class: "secao__titulo", text: "Escolha um produto" }));
       box.appendChild(el("div", { class: "painel-lista" }, (SEED.produtos || []).map(function (prod) {
-        return el("a", { class: "painel-item", href: "#/painel/produtos/" + prod.id }, [
+        var thumb = prod.capa_url
+          ? el("img", { class: "painel-thumb", src: prod.capa_url, alt: "", loading: "lazy" })
+          : el("span", { class: "painel-thumb painel-thumb--vazia", text: "sem\ncapa" });
+        return el("a", { class: "painel-item painel-item--capa", href: "#/painel/produtos/" + prod.id }, [
+          thumb,
           el("span", {}, [
             el("strong", { text: prod.nome }),
             el("span", { class: "painel-item__sub", text: prod.categoria })
@@ -2764,6 +2768,35 @@ window.App = (function () {
     var fBenef = campoForm("O que você vai conquistar (um item por linha)",
       (prod.beneficios || []).join("\n"),
       "Aparece na página de pré-venda, para quem ainda não comprou", true);
+
+    /* Capa do produto: link colado OU upload de arquivo, com prévia */
+    var fCapa = campoForm("Capa — link da imagem", prod.capa_url,
+      "cole uma URL, ou envie um arquivo abaixo");
+    var fCapaArq = el("input", { type: "file", accept: "image/*" });
+    var capaPrevia = el("img", { class: "capa-previa", alt: "" });
+    if (prod.capa_url) capaPrevia.src = prod.capa_url; else capaPrevia.hidden = true;
+    fCapaArq.addEventListener("change", function () {
+      var f = fCapaArq.files && fCapaArq.files[0];
+      if (!f) return;
+      fCapaArq.disabled = true;
+      Store.adminUploadCapa(f, "produtos").then(function (url) {
+        fCapaArq.disabled = false;
+        fCapa.input.value = url;
+        capaPrevia.src = url; capaPrevia.hidden = false;
+      }).catch(function () {
+        fCapaArq.disabled = false; aviso(box, "Não consegui enviar a imagem.");
+      });
+    });
+    var campoCapaArq = el("div", { class: "campo" }, [
+      el("label", { class: "campo__rotulo" }, ["Enviar foto do computador"]), fCapaArq
+    ]);
+    var limparCapa = el("button", { class: "net-mini net-mini--rm", type: "button" },
+      [ico(D.lixo), "Tirar a capa (voltar pra automática)"]);
+    limparCapa.addEventListener("click", function () {
+      fCapa.input.value = "";
+      capaPrevia.hidden = true;
+    });
+
     var cDest = campoCheck("Aparece no carrossel de destaque", prod.destaque);
     var cGrat = campoCheck("Liberado para todas (gratuito)", prod.gratuito);
     var salvarP = el("button", { class: "btn btn--primario", type: "button" }, ["Salvar produto"]);
@@ -2777,6 +2810,7 @@ window.App = (function () {
         link_compra: fLink.input.value.trim() || null,
         kiwify_product_id: fKw.input.value.trim() || null,
         beneficios: fBenef.input.value.trim() || null,
+        capa_url: fCapa.input.value.trim() || null,
         destaque: cDest.input.checked,
         gratuito: cGrat.input.checked
       }).then(function () { return Store.recarregarCatalogo(); })
@@ -2864,7 +2898,10 @@ window.App = (function () {
     box.appendChild(el("div", { class: "net-form" }, [
       el("span", { class: "eyebrow", text: "Dados do produto" }),
       fNome.campo, fSub.campo, fDesc.campo, fPreco.campo, fLink.campo, fKw.campo,
-      fBenef.campo, cDest.campo, cGrat.campo, salvarP
+      fBenef.campo,
+      el("span", { class: "eyebrow", text: "Capa" }),
+      fCapa.campo, campoCapaArq, capaPrevia, limparCapa,
+      cDest.campo, cGrat.campo, salvarP
     ]));
 
     if (ehVip) {
@@ -2914,7 +2951,7 @@ window.App = (function () {
         var f = fArq.files && fArq.files[0];
         if (!f) return;
         fArq.disabled = true;
-        Store.adminUploadCapa(f).then(function (url) {
+        Store.adminUploadCapa(f, "pilares").then(function (url) {
           fArq.disabled = false;
           fCapa.input.value = url;
           previa.src = url; previa.hidden = false;

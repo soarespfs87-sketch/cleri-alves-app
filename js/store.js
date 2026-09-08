@@ -714,10 +714,11 @@ window.Store = (function () {
     if (r.error) throw r.error;
   }
 
-  /* Envia uma capa (foto) pro armário público 'capas' e devolve o link. */
-  async function adminUploadCapa(file) {
+  /* Envia uma capa (foto) pro armário público 'capas' e devolve o link.
+     `pasta` separa por tipo: "produtos", "pilares"... (só pra organizar). */
+  async function adminUploadCapa(file, pasta) {
     var ext = (String(file.name || "capa").split(".").pop() || "jpg").toLowerCase();
-    var path = "pilares/" + Date.now() + "." + ext;
+    var path = (pasta || "capas") + "/" + Date.now() + "." + ext;
     var up = await sb.storage.from("capas").upload(path, file, {
       upsert: true, contentType: file.type || "image/jpeg"
     });
