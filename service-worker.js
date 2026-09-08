@@ -7,7 +7,7 @@
    nunca ficar com código velho preso.
    ============================================================ */
 
-var CACHE = "cleri-alves-v21";
+var CACHE = "cleri-alves-v22";
 
 /* Arquivos do app que valem a pena guardar pra abrir offline / rápido. */
 var SHELL = [

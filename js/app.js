@@ -78,7 +78,9 @@ window.App = (function () {
     menu:    '<path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/>',
     fechar:  '<path d="M6 6l12 12"/><path d="M18 6L6 18"/>',
     whats:   '<path d="M20.5 12a8.5 8.5 0 0 1-12.7 7.4L3.5 20.5l1.2-4.2A8.5 8.5 0 1 1 20.5 12z"/><path d="M8.8 8.5c-.2 0-.5.1-.7.4-.2.3-.9.9-.9 2.1 0 1.3.9 2.5 1 2.7.2.2 1.8 2.9 4.5 3.9 2.2.9 2.7.7 3.2.7.5-.1 1.6-.7 1.8-1.3.2-.6.2-1.2.2-1.3-.1-.1-.3-.2-.6-.3l-1.6-.8c-.2-.1-.4-.1-.6.1l-.7.9c-.1.2-.3.2-.5.1-.7-.3-1.5-.6-2.4-1.6-.7-.7-1.1-1.5-1.3-1.8-.1-.2 0-.4.1-.5l.5-.5c.1-.2.2-.3.3-.5.1-.2 0-.4 0-.5l-.7-1.7c-.2-.4-.4-.4-.6-.4z" fill="currentColor" stroke="none"/>',
-    sair:    '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/>'
+    sair:    '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/>',
+    olho:    '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/>',
+    olhoOff: '<path d="M9.9 4.6A9.8 9.8 0 0 1 12 4.4c6.4 0 10 7 10 7a17.6 17.6 0 0 1-3.3 4.2"/><path d="M6.1 6.1A17.6 17.6 0 0 0 2 12s3.6 7 10 7a9.8 9.8 0 0 0 4.1-.9"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/><path d="M3 3l18 18"/>'
   };
 
   /* ---------- datas em português ---------- */
@@ -447,6 +449,25 @@ window.App = (function () {
       input, el("span", { text: rotulo }) ]) };
   }
 
+  /* Envolve um <input type=password> com um botão de "mostrar senha" (olho).
+     Devolve o elemento pronto pra pôr dentro de um .campo. */
+  function comOlhoDeSenha(input) {
+    var btn = el("button", {
+      class: "ver-senha", type: "button", tabindex: "-1",
+      "aria-label": "Mostrar senha", "aria-pressed": "false"
+    }, [ico(D.olho)]);
+    btn.addEventListener("click", function () {
+      var revelar = input.type === "password";
+      input.type = revelar ? "text" : "password";
+      btn.innerHTML = "";
+      btn.appendChild(ico(revelar ? D.olhoOff : D.olho));
+      btn.setAttribute("aria-pressed", revelar ? "true" : "false");
+      btn.setAttribute("aria-label", revelar ? "Ocultar senha" : "Mostrar senha");
+      input.focus();
+    });
+    return el("div", { class: "campo__senha" }, [input, btn]);
+  }
+
   /* -------------------------------------------------------
      Menu lateral (drawer) — acesso rápido a tudo + Suporte
      ------------------------------------------------------- */
@@ -709,7 +730,7 @@ window.App = (function () {
     ]));
     campos.push(el("div", { class: "campo" }, [
       el("label", { class: "campo__rotulo", for: "campo-senha" }, ["Senha"]),
-      campoSenha
+      comOlhoDeSenha(campoSenha)
     ]));
 
     var linkEsqueci = el("button", { class: "login__link", type: "button",
@@ -782,10 +803,10 @@ window.App = (function () {
 
     var form = el("form", { class: "form", onsubmit: enviar }, [
       el("div", { class: "campo" }, [
-        el("label", { class: "campo__rotulo" }, ["Nova senha"]), campoSenha
+        el("label", { class: "campo__rotulo" }, ["Nova senha"]), comOlhoDeSenha(campoSenha)
       ]),
       el("div", { class: "campo" }, [
-        el("label", { class: "campo__rotulo" }, ["Confirmar"]), campoSenha2
+        el("label", { class: "campo__rotulo" }, ["Confirmar"]), comOlhoDeSenha(campoSenha2)
       ]),
       erro, botao
     ]);
