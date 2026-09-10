@@ -1288,7 +1288,7 @@ window.App = (function () {
         el("span", { class: "curso__progresso-txt", text: feito + " de " + total + " aulas" })
       ]),
       el("p", { class: "pilares__nota",
-        text: "Cada pilar é uma trilha gravada, disponível desde já. As lives com convidadas vão somando encontros ao longo do caminho." })
+        text: "As trilhas abrem aos poucos, contando a partir do dia em que você entrou: a primeira já na entrada, mais duas depois de 7 dias e as demais depois de 14 dias. As lives ao vivo estão sempre liberadas." })
     ];
 
     var lives = livesDoProduto(produto.id, null);
@@ -1316,12 +1316,51 @@ window.App = (function () {
     ]);
   }
 
+  /* Liberação por calendário: cada pilar abre `dias_liberacao` dias depois
+     da data em que a aluna entrou no produto (acessos.liberado_em).
+     A mentora e o pilar de lives veem tudo aberto; sem data de entrada,
+     libera (não trava a aluna por falta de dado). */
+  function statusPilar(aluna, produto, pl) {
+    var dias = Math.max(0, Number(pl && pl.dias_liberacao) || 0);
+    if (aluna.papel === "mentora" || (pl && pl.ao_vivo) || dias === 0) {
+      return { liberado: true, abreEm: null, faltamDias: 0 };
+    }
+    var entradaISO = Store.dataEntrada(produto.id);
+    if (!entradaISO) return { liberado: true, abreEm: null, faltamDias: 0 };
+
+    var abre = new Date(entradaISO);
+    abre.setHours(0, 0, 0, 0);
+    abre.setDate(abre.getDate() + dias);
+    var hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    var faltam = Math.round((abre.getTime() - hoje.getTime()) / 86400000);
+    return { liberado: faltam <= 0, abreEm: abre, faltamDias: Math.max(0, faltam) };
+  }
+
+  function textoAbre(st) {
+    if (st.faltamDias <= 1) return "Abre amanhã";
+    return "Abre em " + st.faltamDias + " dias";
+  }
+
   function cardPilar(aluna, produto, pl) {
     var aulas = pl.aulas || [];
     var feitas = aulas.filter(function (a) {
       return Store.aulaConcluida(aluna.id, produto.id, a.id);
     }).length;
     var completo = aulas.length && feitas === aulas.length;
+    var st = statusPilar(aluna, produto, pl);
+
+    if (!st.liberado) {
+      return el("div", { class: "capa-card pilar-card pilar-card--bloq capa-card--bloq" }, [
+        el("div", { class: "capa-card__arte" }, [
+          capaDePilar(pl),
+          el("span", { class: "capa-card__cad" }, [ico(D.cadeado)])
+        ]),
+        el("span", { class: "capa-card__nome", text: pl.nome }),
+        el("span", { class: "capa-card__sub",
+          text: textoAbre(st) + (st.abreEm ? " · " + dataCurta(st.abreEm) : "") })
+      ]);
+    }
 
     var meta = pl.ao_vivo
       ? (aulas.length + (aulas.length === 1 ? " gravação" : " gravações"))
@@ -1504,6 +1543,29 @@ window.App = (function () {
       return Store.aulaConcluida(aluna.id, produto.id, a.id);
     }).length;
     var lives = pilar.ao_vivo ? [] : proximasLives(produto.id, pilar.id);
+    var st = statusPilar(aluna, produto, pilar);
+
+    if (!st.liberado) {
+      montarTela(el("div", {}, [
+        barraTopo({ voltarHref: "/produto/" + produto.id, voltarLabel: produto.nome }),
+        el("div", { class: "container" }, [
+          el("span", { class: "capa capa--vip tint--vip" }, [
+            el("img", { class: "capa__marca", src: "assets/logo-mark.png", alt: "" }),
+            el("span", { class: "capa__cat", text: "Pilar do Grupo VIP" })
+          ]),
+          el("h1", { class: "curso__titulo", text: pilar.nome }),
+          pilar.descricao ? el("p", { class: "curso__desc", text: pilar.descricao }) : null,
+          el("div", { class: "pilar-bloq" }, [
+            el("span", { class: "pilar-bloq__ico" }, [ico(D.cadeado)]),
+            el("p", { class: "pilar-bloq__titulo", text: textoAbre(st) }),
+            el("p", { class: "pilar-bloq__txt", text: st.abreEm
+              ? "Esta trilha abre no dia " + dataCurta(st.abreEm) + ", contando a partir da sua entrada no Grupo VIP."
+              : "Esta trilha ainda não está liberada para você." })
+          ])
+        ])
+      ]));
+      return;
+    }
 
     var corpo = [
       el("span", { class: "capa capa--vip tint--vip" }, [
@@ -2959,6 +3021,8 @@ window.App = (function () {
       var fDesc = campoForm("Descrição", pl.descricao, "Uma frase sobre o pilar", true);
       var fCad = campoForm("Cadência das lives (texto livre)", pl.cadencia_ao_vivo, "Ex: 1 live por mês");
       var fOrd = campoTipo("Ordem", pl.ordem == null ? "" : pl.ordem, "number", "1");
+      var fDias = campoTipo("Libera quantos dias após a entrada da aluna",
+        pl.dias_liberacao == null ? "0" : pl.dias_liberacao, "number", "0");
       var cAberto = campoCheck("Vaga aberta (ainda sem convidada fixa)", pl.aberto);
       var cVivo = campoCheck("Pilar das gravações ao vivo (ordena por data)", pl.ao_vivo);
 
@@ -2991,7 +3055,7 @@ window.App = (function () {
         el("span", { class: "eyebrow", text: pl.id ? "Editar pilar" : "Novo pilar" }),
         fNome.campo, fSlug.campo, fDesc.campo,
         fCapa.campo, campoArq, previa,
-        fCad.campo, fOrd.campo, cAberto.campo, cVivo.campo,
+        fCad.campo, fOrd.campo, fDias.campo, cAberto.campo, cVivo.campo,
         el("div", { class: "net-form__acoes" }, [salvar, fechar])
       ]);
       fechar.addEventListener("click", function () { wrap.parentNode.removeChild(wrap); });
@@ -3006,6 +3070,7 @@ window.App = (function () {
           capa_url: fCapa.input.value.trim(),
           cadencia_ao_vivo: fCad.input.value.trim(),
           ordem: fOrd.input.value === "" ? 0 : Number(fOrd.input.value),
+          dias_liberacao: fDias.input.value === "" ? 0 : Number(fDias.input.value),
           aberto: cAberto.input.checked, ao_vivo: cVivo.input.checked
         }).then(function () { return Store.recarregarCatalogo(); })
           .then(function () { wrap.parentNode.removeChild(wrap); recarregar(); })
@@ -3041,9 +3106,11 @@ window.App = (function () {
             el("span", {}, [
               el("strong", { text: (pl.ordem != null ? pl.ordem + ". " : "") + pl.nome }),
               el("span", { class: "painel-item__sub", text: pl.ao_vivo
-                ? "gravações ao vivo"
-                : (pl.aberto ? "vaga aberta"
-                   : (pl.capa_url ? "com capa" : "sem capa")) })
+                ? "gravações ao vivo · sempre liberado"
+                : ((pl.aberto ? "vaga aberta · " : "")
+                   + (Number(pl.dias_liberacao) > 0
+                      ? "abre " + pl.dias_liberacao + " dias após a entrada"
+                      : "abre na entrada")) })
             ]),
             el("span", { class: "painel-item__btns" }, [ir, ed, rm])
           ]);
@@ -3256,6 +3323,14 @@ window.App = (function () {
       if (partes[2] === "aula" && partes[3]) {
         var aula = produto.aulas.find(function (x) { return x.id === partes[3]; });
         if (!aula) { irPara("/produto/" + produto.id); return; }
+        /* aula dentro de um pilar ainda não liberado: volta pro pilar (que mostra quando abre) */
+        var pilarDaAula = (produto.pilares || []).find(function (p) {
+          return (p.aulas || []).some(function (a) { return a.id === aula.id; });
+        });
+        if (pilarDaAula && !statusPilar(aluna, produto, pilarDaAula).liberado) {
+          irPara("/produto/" + produto.id + "/pilar/" + pilarDaAula.id);
+          return;
+        }
         telaAula(aluna, produto, aula);
         return;
       }

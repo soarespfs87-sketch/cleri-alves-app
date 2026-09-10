@@ -71,6 +71,11 @@ window.Store = (function () {
   function slugDoProduto(u) { return slugPorProdutoId[u] || null; }
   function idDoProdutoSlug(s) { return produtoIdPorSlug[s] || null; }
 
+  /* Quando a aluna logada entrou nesse produto (ISO) — ou null se não tem. */
+  function dataEntrada(produtoSlug) {
+    return (alunaAtual && alunaAtual.entradas && alunaAtual.entradas[produtoSlug]) || null;
+  }
+
   /* Traz o conteúdo da Cleri (catálogo) do banco e reescreve o SEED.
      Só roda uma vez por carregamento do app. */
   async function carregarCatalogo() {
@@ -131,6 +136,7 @@ window.Store = (function () {
               id: pl.slug, nome: pl.nome, descricao: pl.descricao,
               responsavel: pl.responsavel, cadencia_ao_vivo: pl.cadencia_ao_vivo,
               aberto: pl.aberto, ao_vivo: pl.ao_vivo, capa_url: pl.capa_url,
+              dias_liberacao: pl.dias_liberacao == null ? 0 : pl.dias_liberacao,
               ordem: pl.ordem, aulas: doPilar.map(mapAula)
             };
           });
@@ -275,8 +281,16 @@ window.Store = (function () {
 
     var u = sessao.user.id;
     var perfilResp = await sb.from("perfis").select("*").eq("id", u).maybeSingle();
-    var acessosResp = await sb.from("acessos").select("produto_id");
+    var acessosResp = await sb.from("acessos").select("produto_id, liberado_em");
     var perfil = perfilResp.data;
+
+    /* Data em que a aluna entrou em cada produto (slug -> ISO).
+       É a régua da liberação por calendário dos pilares do Grupo VIP. */
+    var entradas = {};
+    (acessosResp.data || []).forEach(function (a) {
+      var slug = slugPorProdutoId[a.produto_id];
+      if (slug) entradas[slug] = a.liberado_em || null;
+    });
 
     alunaAtual = {
       id: u,
@@ -287,7 +301,8 @@ window.Store = (function () {
       etapa_coroa: (perfil && perfil.etapa_coroa) || 0,
       produtos: (acessosResp.data || [])
         .map(function (a) { return slugPorProdutoId[a.produto_id]; })
-        .filter(Boolean)
+        .filter(Boolean),
+      entradas: entradas
     };
 
     await carregarDadosDaAluna();
@@ -700,7 +715,8 @@ window.Store = (function () {
       slug: pl.slug, nome: pl.nome, descricao: pl.descricao || null,
       capa_url: pl.capa_url || null,
       cadencia_ao_vivo: pl.cadencia_ao_vivo || null,
-      aberto: !!pl.aberto, ao_vivo: !!pl.ao_vivo, ordem: pl.ordem || 0
+      aberto: !!pl.aberto, ao_vivo: !!pl.ao_vivo, ordem: pl.ordem || 0,
+      dias_liberacao: Math.max(0, Number(pl.dias_liberacao) || 0)
     };
     var r = pl.id
       ? await sb.from("produto_pilares").update(dados).eq("id", pl.id).select().single()
@@ -776,6 +792,7 @@ window.Store = (function () {
     linkMaterial: linkMaterial,
     slugDoProduto: slugDoProduto,
     idDoProdutoSlug: idDoProdutoSlug,
+    dataEntrada: dataEntrada,
 
     aulaConcluida: aulaConcluida,
     alternarAula: alternarAula,
