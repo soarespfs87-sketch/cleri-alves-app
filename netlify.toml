@@ -1,0 +1,10 @@
+# Site estático (HTML/CSS/JS puro, sem build). O Netlify só publica a pasta raiz.
+[build]
+  publish = "."
+  command = ""
+
+# O service worker não deve ser cacheado pelo CDN, pra atualização pegar na hora.
+[[headers]]
+  for = "/service-worker.js"
+  [headers.values]
+    Cache-Control = "no-cache"
